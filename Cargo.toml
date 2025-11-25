@@ -1,0 +1,12 @@
+[package]
+name = "db_schema_dump"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+tokio = { version = "1", features = ["full"] }
+sqlx = { version = "0.8.6", features = [
+  "runtime-tokio-native-tls",
+  "postgres",
+] }
+anyhow = "1.0" # For easy error handling
