@@ -1,13 +1,12 @@
 use anyhow::Result;
 use sqlx::postgres::PgPoolOptions;
-use std::fmt::Write; // Allows us to write to a String buffer
+use std::fmt::Write;
 
 // Replace with your actual connection string
 const DB_URL: &str = "postgresql://saltchicken:password@10.0.0.5:5432/stock";
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    // 1. Create a connection pool
     let pool = PgPoolOptions::new()
         .max_connections(5)
         .connect(DB_URL)
@@ -18,7 +17,7 @@ async fn main() -> Result<()> {
         DB_URL.split('/').last().unwrap_or("Unknown")
     );
 
-    // 2. Get all table names from the public schema
+    // Get all table names
     let tables: Vec<(String,)> = sqlx::query_as(
         "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'",
     )
@@ -29,8 +28,7 @@ async fn main() -> Result<()> {
         let mut output = String::new();
         writeln!(output, "## Table: {}", table_name)?;
 
-        // 3. Get Columns
-        // We fetch column name, data type, and is_nullable
+        // --- 1. Columns ---
         let columns: Vec<(String, String, String)> = sqlx::query_as(
             r#"
             SELECT column_name, data_type, is_nullable 
@@ -45,12 +43,11 @@ async fn main() -> Result<()> {
 
         writeln!(output, "| Column | Type | Nullable |")?;
         writeln!(output, "|---|---|---|")?;
-
         for (col_name, data_type, is_nullable) in columns {
             writeln!(output, "| {} | {} | {} |", col_name, data_type, is_nullable)?;
         }
 
-        // 4. Get Primary Keys
+        // --- 2. Primary Keys ---
         let pks: Vec<(String,)> = sqlx::query_as(
             r#"
             SELECT kcu.column_name
@@ -71,7 +68,7 @@ async fn main() -> Result<()> {
             writeln!(output, "\n**Primary Key:** {}", pk_list.join(", "))?;
         }
 
-        // 5. Get Foreign Keys (Crucial for context)
+        // --- 3. Foreign Keys ---
         let fks: Vec<(String, String, String)> = sqlx::query_as(
             r#"
             SELECT
@@ -101,9 +98,28 @@ async fn main() -> Result<()> {
             }
         }
 
-        writeln!(output, "\n---\n")?;
+        // --- 4. Sample Data ---
+        // We use 'row_to_json' to force Postgres to serialize the dynamic row into a string.
+        // We format the SQL query string directly because table names cannot be bound as parameters ($1).
+        // Note: We wrap table_name in quotes \"" to handle capitalization or special characters.
+        let data_query = format!(
+            "SELECT row_to_json(t)::text FROM (SELECT * FROM \"{}\" LIMIT 5) t",
+            table_name
+        );
 
-        // Print the block for this table
+        let rows: Vec<(String,)> = sqlx::query_as(&data_query)
+            .fetch_all(&pool)
+            .await
+            .unwrap_or_default(); // If query fails (e.g. permissions), just return empty list
+
+        if !rows.is_empty() {
+            writeln!(output, "\n**Sample Data (Top 5 rows):**")?;
+            for (json_row,) in rows {
+                writeln!(output, "- `{}`", json_row)?;
+            }
+        }
+
+        writeln!(output, "\n---\n")?;
         print!("{}", output);
     }
 
