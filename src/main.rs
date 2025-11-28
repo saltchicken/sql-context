@@ -29,9 +29,10 @@ async fn main() -> Result<()> {
         writeln!(output, "## Table: {}", table_name)?;
 
         // --- 1. Columns ---
-        let columns: Vec<(String, String, String)> = sqlx::query_as(
+        // ‼️ Added udt_name (4th element) to the query to help identify custom types like 'vector'
+        let columns: Vec<(String, String, String, String)> = sqlx::query_as(
             r#"
-            SELECT column_name, data_type, is_nullable 
+            SELECT column_name, data_type, is_nullable, udt_name
             FROM information_schema.columns 
             WHERE table_name = $1 AND table_schema = 'public'
             ORDER BY ordinal_position
@@ -43,7 +44,8 @@ async fn main() -> Result<()> {
 
         writeln!(output, "| Column | Type | Nullable |")?;
         writeln!(output, "|---|---|---|")?;
-        for (col_name, data_type, is_nullable) in columns {
+        // ‼️ Updated loop to handle the 4-tuple (ignoring udt_name for the print table)
+        for (col_name, data_type, is_nullable, _udt_name) in &columns {
             writeln!(output, "| {} | {} | {} |", col_name, data_type, is_nullable)?;
         }
 
@@ -99,12 +101,24 @@ async fn main() -> Result<()> {
         }
 
         // --- 4. Sample Data ---
+        // ‼️ Build a custom SELECT list to replace bytea/vector content with placeholders
+        let mut select_parts = Vec::new();
+        for (col_name, data_type, _, udt_name) in &columns {
+            if data_type == "bytea" {
+                select_parts.push(format!("'[bytea]'::text AS \"{}\"", col_name));
+            } else if udt_name == "vector" {
+                select_parts.push(format!("'[vector]'::text AS \"{}\"", col_name));
+            } else {
+                select_parts.push(format!("\"{}\"", col_name));
+            }
+        }
+        let select_list = select_parts.join(", ");
+
         // We use 'row_to_json' to force Postgres to serialize the dynamic row into a string.
-        // We format the SQL query string directly because table names cannot be bound as parameters ($1).
-        // Note: We wrap table_name in quotes \"" to handle capitalization or special characters.
+        // ‼️ Use the constructed select_list instead of *
         let data_query = format!(
-            "SELECT row_to_json(t)::text FROM (SELECT * FROM \"{}\" LIMIT 5) t",
-            table_name
+            "SELECT row_to_json(t)::text FROM (SELECT {} FROM \"{}\" LIMIT 5) t",
+            select_list, table_name
         );
 
         let rows: Vec<(String,)> = sqlx::query_as(&data_query)
