@@ -3,7 +3,7 @@ use sqlx::postgres::PgPoolOptions;
 use std::fmt::Write;
 
 // Replace with your actual connection string
-const DB_URL: &str = "postgresql://saltchicken:password@10.0.0.5:5432/stock";
+const DB_URL: &str = "postgresql://saltchicken:password@10.0.0.5:5432/facer_db";
 
 #[tokio::main]
 async fn main() -> Result<()> {
