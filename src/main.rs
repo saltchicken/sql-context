@@ -29,7 +29,7 @@ async fn main() -> Result<()> {
         writeln!(output, "## Table: {}", table_name)?;
 
         // --- 1. Columns ---
-        // ‼️ Added udt_name (4th element) to the query to help identify custom types like 'vector'
+
         let columns: Vec<(String, String, String, String)> = sqlx::query_as(
             r#"
             SELECT column_name, data_type, is_nullable, udt_name
@@ -44,7 +44,7 @@ async fn main() -> Result<()> {
 
         writeln!(output, "| Column | Type | Nullable |")?;
         writeln!(output, "|---|---|---|")?;
-        // ‼️ Updated loop to handle the 4-tuple (ignoring udt_name for the print table)
+
         for (col_name, data_type, is_nullable, _udt_name) in &columns {
             writeln!(output, "| {} | {} | {} |", col_name, data_type, is_nullable)?;
         }
@@ -101,7 +101,7 @@ async fn main() -> Result<()> {
         }
 
         // --- 4. Sample Data ---
-        // ‼️ Build a custom SELECT list to replace bytea/vector content with placeholders
+
         let mut select_parts = Vec::new();
         for (col_name, data_type, _, udt_name) in &columns {
             if data_type == "bytea" {
@@ -115,7 +115,7 @@ async fn main() -> Result<()> {
         let select_list = select_parts.join(", ");
 
         // We use 'row_to_json' to force Postgres to serialize the dynamic row into a string.
-        // ‼️ Use the constructed select_list instead of *
+
         let data_query = format!(
             "SELECT row_to_json(t)::text FROM (SELECT {} FROM \"{}\" LIMIT 5) t",
             select_list, table_name
