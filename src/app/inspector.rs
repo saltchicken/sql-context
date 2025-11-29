@@ -3,18 +3,21 @@ use anyhow::Result;
 use sqlx::Row;
 use sqlx::postgres::PgRow;
 
-
 // It handles all database interaction.
 
 pub struct Inspector<'a> {
     pool: &'a sqlx::PgPool,
+    collect_samples: bool, // ‼️ Added flag to struct
 }
 
 impl<'a> Inspector<'a> {
-    pub fn new(pool: &'a sqlx::PgPool) -> Self {
-        Self { pool }
+    // ‼️ Updated constructor to accept config option
+    pub fn new(pool: &'a sqlx::PgPool, collect_samples: bool) -> Self {
+        Self {
+            pool,
+            collect_samples,
+        }
     }
-
 
     pub async fn scan(&self) -> Result<Vec<TableData>> {
         let tables: Vec<(String,)> = sqlx::query_as(
@@ -29,7 +32,13 @@ impl<'a> Inspector<'a> {
             let columns = self.get_columns(&table_name).await?;
             let primary_keys = self.get_primary_keys(&table_name).await?;
             let foreign_keys = self.get_foreign_keys(&table_name).await?;
-            let sample_rows = self.get_sample_data(&table_name, &columns).await?;
+
+            // ‼️ Check flag before fetching samples
+            let sample_rows = if self.collect_samples {
+                self.get_sample_data(&table_name, &columns).await?
+            } else {
+                Vec::new()
+            };
 
             results.push(TableData {
                 name: table_name,
@@ -42,7 +51,6 @@ impl<'a> Inspector<'a> {
 
         Ok(results)
     }
-
 
     async fn get_columns(&self, table_name: &str) -> Result<Vec<ColumnInfo>> {
         sqlx::query_as::<_, ColumnInfo>(
@@ -132,3 +140,4 @@ impl<'a> Inspector<'a> {
         Ok(rows)
     }
 }
+
