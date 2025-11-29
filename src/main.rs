@@ -1,11 +1,19 @@
 use anyhow::{Context, Result};
+use clap::Parser;
 use sqlx::postgres::{PgPoolOptions, PgRow};
 use sqlx::{FromRow, Row};
 use std::env;
 use std::fmt::Write;
 
 
-// This is more idiomatic and easier to read.
+#[derive(Parser, Debug)]
+#[command(version, about, long_about = None)]
+struct Args {
+    /// Optional database connection string. If not provided, looks for DATABASE_URL env var.
+    #[arg(short, long)]
+    db_url: Option<String>,
+}
+
 #[derive(FromRow)]
 struct ColumnInfo {
     column_name: String,
@@ -23,12 +31,17 @@ struct ForeignKeyInfo {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-
+    // Load environment variables from .env file if present
     dotenvy::dotenv().ok();
 
 
-    let db_url = env::var("DATABASE_URL")
-        .context("DATABASE_URL must be set in .env or environment variables")?;
+    let args = Args::parse();
+
+
+    let db_url = args
+        .db_url
+        .or_else(|| env::var("DATABASE_URL").ok())
+        .context("DATABASE_URL must be set via --db-url or in .env/environment variables")?;
 
     let pool = PgPoolOptions::new()
         .max_connections(5)
@@ -52,7 +65,6 @@ async fn main() -> Result<()> {
         let mut output = String::new();
         writeln!(output, "## Table: {}", table_name)?;
 
-
         let columns = get_columns(&pool, &table_name).await?;
 
         writeln!(output, "| Column | Type | Nullable |")?;
@@ -66,12 +78,10 @@ async fn main() -> Result<()> {
             )?;
         }
 
-
         let pks = get_primary_keys(&pool, &table_name).await?;
         if !pks.is_empty() {
             writeln!(output, "\n**Primary Key:** {}", pks.join(", "))?;
         }
-
 
         let fks = get_foreign_keys(&pool, &table_name).await?;
         if !fks.is_empty() {
@@ -86,7 +96,6 @@ async fn main() -> Result<()> {
         }
 
         // --- Sample Data ---
-
         let samples = get_sample_data(&pool, &table_name, &columns).await?;
 
         if !samples.is_empty() {
@@ -102,8 +111,6 @@ async fn main() -> Result<()> {
 
     Ok(())
 }
-
-
 
 async fn get_columns(pool: &sqlx::PgPool, table_name: &str) -> Result<Vec<ColumnInfo>> {
     sqlx::query_as::<_, ColumnInfo>(
@@ -167,7 +174,6 @@ async fn get_sample_data(
 ) -> Result<Vec<String>> {
     let mut select_parts = Vec::new();
     for col in columns {
-
         if col.data_type == "bytea" {
             select_parts.push(format!("'[bytea]'::text AS \"{}\"", col.column_name));
         } else if col.udt_name == "vector" {
@@ -177,19 +183,16 @@ async fn get_sample_data(
         }
     }
 
-
     if select_parts.is_empty() {
         return Ok(vec![]);
     }
 
     let select_list = select_parts.join(", ");
 
-    // We use 'row_to_json' to force Postgres to serialize the dynamic row into a string.
     let data_query = format!(
         "SELECT row_to_json(t)::text FROM (SELECT {} FROM \"{}\" LIMIT 5) t",
         select_list, table_name
     );
-
 
     let rows = sqlx::query(&data_query)
         .map(|row: PgRow| row.get::<String, _>(0))
