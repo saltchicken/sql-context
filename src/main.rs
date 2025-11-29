@@ -5,11 +5,10 @@ use sqlx::{FromRow, Row};
 use std::env;
 use std::fmt::Write;
 
-
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 struct Args {
-    /// Optional database connection string. If not provided, looks for DATABASE_URL env var.
+    /// Optional database connection string. If not provided, looks for DB_URL env var.
     #[arg(short, long)]
     db_url: Option<String>,
 }
@@ -34,14 +33,12 @@ async fn main() -> Result<()> {
     // Load environment variables from .env file if present
     dotenvy::dotenv().ok();
 
-
     let args = Args::parse();
-
 
     let db_url = args
         .db_url
-        .or_else(|| env::var("DATABASE_URL").ok())
-        .context("DATABASE_URL must be set via --db-url or in .env/environment variables")?;
+        .or_else(|| env::var("DB_URL").ok())
+        .context("DB_URL must be set via --db-url or in .env/environment variables")?;
 
     let pool = PgPoolOptions::new()
         .max_connections(5)
@@ -202,3 +199,4 @@ async fn get_sample_data(
 
     Ok(rows)
 }
+
