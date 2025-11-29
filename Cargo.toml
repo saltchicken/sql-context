@@ -11,3 +11,4 @@ sqlx = { version = "0.8.6", features = [
   "json",
 ] }
 anyhow = "1.0" # For easy error handling
+dotenvy = "0.15"
