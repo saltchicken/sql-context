@@ -7,15 +7,17 @@ use sqlx::postgres::PgRow;
 
 pub struct Inspector<'a> {
     pool: &'a sqlx::PgPool,
-    collect_samples: bool, // ‼️ Added flag to struct
+    collect_samples: bool,
+    ignore_tables: Vec<String>,
 }
 
 impl<'a> Inspector<'a> {
-    // ‼️ Updated constructor to accept config option
-    pub fn new(pool: &'a sqlx::PgPool, collect_samples: bool) -> Self {
+
+    pub fn new(pool: &'a sqlx::PgPool, collect_samples: bool, ignore_tables: Vec<String>) -> Self {
         Self {
             pool,
             collect_samples,
+            ignore_tables,
         }
     }
 
@@ -29,11 +31,16 @@ impl<'a> Inspector<'a> {
         let mut results = Vec::new();
 
         for (table_name,) in tables {
+
+            if self.ignore_tables.contains(&table_name) {
+                continue;
+            }
+
             let columns = self.get_columns(&table_name).await?;
             let primary_keys = self.get_primary_keys(&table_name).await?;
             let foreign_keys = self.get_foreign_keys(&table_name).await?;
 
-            // ‼️ Check flag before fetching samples
+            // Check flag before fetching samples
             let sample_rows = if self.collect_samples {
                 self.get_sample_data(&table_name, &columns).await?
             } else {
@@ -140,4 +147,3 @@ impl<'a> Inspector<'a> {
         Ok(rows)
     }
 }
-

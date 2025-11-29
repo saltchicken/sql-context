@@ -7,6 +7,7 @@ pub struct AppConfig {
     pub db_url: String,
     pub db_name: String,
     pub collect_samples: bool,
+    pub ignore_tables: Vec<String>,
 }
 
 pub fn resolve_config(cli: Cli) -> Result<AppConfig> {
@@ -20,9 +21,13 @@ pub fn resolve_config(cli: Cli) -> Result<AppConfig> {
 
     let db_name = db_url.split('/').last().unwrap_or("Unknown").to_string();
 
+
+    let ignore_tables = cli.ignore.unwrap_or_default();
+
     Ok(AppConfig {
         db_url,
         db_name,
         collect_samples: true,
+        ignore_tables,
     })
 }

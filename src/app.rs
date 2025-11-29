@@ -23,8 +23,8 @@ pub async fn generate_report(config: &AppConfig) -> Result<String> {
         .context("Failed to connect to database")?;
 
     // 2. Scan (Inspector)
-    // ‼️ Pass the collect_samples config option here
-    let inspector = Inspector::new(&pool, config.collect_samples);
+
+    let inspector = Inspector::new(&pool, config.collect_samples, config.ignore_tables.clone());
     let table_data = inspector.scan().await?;
 
     // 3. Format (OutputGenerator)
@@ -48,4 +48,3 @@ pub async fn run() -> Result<()> {
 
     Ok(())
 }
-
