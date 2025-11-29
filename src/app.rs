@@ -13,7 +13,6 @@ use self::config::{AppConfig, resolve_config};
 use self::formatter::OutputGenerator;
 use self::inspector::Inspector;
 
-
 // Connects, Scans, and Formats in one go.
 pub async fn generate_report(config: &AppConfig) -> Result<String> {
     // 1. Connect
@@ -24,7 +23,8 @@ pub async fn generate_report(config: &AppConfig) -> Result<String> {
         .context("Failed to connect to database")?;
 
     // 2. Scan (Inspector)
-    let inspector = Inspector::new(&pool);
+    // ‼️ Pass the collect_samples config option here
+    let inspector = Inspector::new(&pool, config.collect_samples);
     let table_data = inspector.scan().await?;
 
     // 3. Format (OutputGenerator)
@@ -32,7 +32,6 @@ pub async fn generate_report(config: &AppConfig) -> Result<String> {
 
     Ok(output)
 }
-
 
 pub async fn run() -> Result<()> {
     // 1. Parse Args
@@ -49,3 +48,4 @@ pub async fn run() -> Result<()> {
 
     Ok(())
 }
+
