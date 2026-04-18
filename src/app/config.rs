@@ -21,13 +21,12 @@ pub fn resolve_config(cli: Cli) -> Result<AppConfig> {
 
     let db_name = db_url.split('/').last().unwrap_or("Unknown").to_string();
 
-
     let ignore_tables = cli.ignore.unwrap_or_default();
 
     Ok(AppConfig {
         db_url,
         db_name,
-        collect_samples: true,
+        collect_samples: cli.samples,
         ignore_tables,
     })
 }

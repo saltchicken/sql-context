@@ -7,7 +7,10 @@ pub struct Cli {
     #[arg(short, long)]
     pub db_url: Option<String>,
 
-
     #[arg(long, value_delimiter = ',', num_args = 0..)]
     pub ignore: Option<Vec<String>>,
+
+    /// Collect sample rows from tables
+    #[arg(long)]
+    pub samples: bool,
 }
