@@ -1,7 +1,6 @@
 use crate::app::models::TableData;
 use std::fmt::Write;
 
-
 pub struct OutputGenerator;
 
 impl OutputGenerator {
@@ -16,13 +15,27 @@ impl OutputGenerator {
         for table in tables {
             writeln!(output, "## Table: {}", table.name)?;
 
-            writeln!(output, "| Column | Type | Nullable |")?;
-            writeln!(output, "|---|---|---|")?;
+            if let Some(comment) = &table.comment {
+                writeln!(output, "\n**Description:** {}\n", comment.trim())?;
+            } else {
+                writeln!(output)?;
+            }
+
+            writeln!(output, "| Column | Type | Nullable | Description |")?;
+            writeln!(output, "|---|---|---|---|")?;
             for col in &table.columns {
+                // If a comment exists, escape pipes `|` and newlines to preserve Markdown table format
+                let clean_comment = col
+                    .comment
+                    .as_deref()
+                    .unwrap_or("")
+                    .replace('\n', " ")
+                    .replace('|', "\\|");
+
                 writeln!(
                     output,
-                    "| {} | {} | {} |",
-                    col.column_name, col.data_type, col.is_nullable
+                    "| {} | {} | {} | {} |",
+                    col.column_name, col.data_type, col.is_nullable, clean_comment
                 )?;
             }
 

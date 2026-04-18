@@ -1,12 +1,12 @@
 use sqlx::FromRow;
 
-
 #[derive(FromRow, Debug, Clone)]
 pub struct ColumnInfo {
     pub column_name: String,
     pub data_type: String,
     pub is_nullable: String,
     pub udt_name: String,
+    pub comment: Option<String>, // Added comment field
 }
 
 #[derive(FromRow, Debug, Clone)]
@@ -16,11 +16,11 @@ pub struct ForeignKeyInfo {
     pub foreign_column_name: String,
 }
 
-
 // This allows separating the "Scanning" phase from the "Formatting" phase.
 #[derive(Debug, Clone)]
 pub struct TableData {
     pub name: String,
+    pub comment: Option<String>, // Added table comment field
     pub columns: Vec<ColumnInfo>,
     pub primary_keys: Vec<String>,
     pub foreign_keys: Vec<ForeignKeyInfo>,

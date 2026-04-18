@@ -12,7 +12,6 @@ pub struct Inspector<'a> {
 }
 
 impl<'a> Inspector<'a> {
-
     pub fn new(pool: &'a sqlx::PgPool, collect_samples: bool, ignore_tables: Vec<String>) -> Self {
         Self {
             pool,
@@ -31,10 +30,17 @@ impl<'a> Inspector<'a> {
         let mut results = Vec::new();
 
         for (table_name,) in tables {
-
             if self.ignore_tables.contains(&table_name) {
                 continue;
             }
+
+            // Fetch table comment
+            let table_comment: Option<String> = sqlx::query_scalar(
+                "SELECT pg_catalog.obj_description(format('%I.%I', 'public', $1)::regclass::oid, 'pg_class')"
+            )
+            .bind(&table_name)
+            .fetch_one(self.pool)
+            .await?;
 
             let columns = self.get_columns(&table_name).await?;
             let primary_keys = self.get_primary_keys(&table_name).await?;
@@ -49,6 +55,7 @@ impl<'a> Inspector<'a> {
 
             results.push(TableData {
                 name: table_name,
+                comment: table_comment,
                 columns,
                 primary_keys,
                 foreign_keys,
@@ -60,9 +67,15 @@ impl<'a> Inspector<'a> {
     }
 
     async fn get_columns(&self, table_name: &str) -> Result<Vec<ColumnInfo>> {
+        // Query updated to include Postgres' col_description
         sqlx::query_as::<_, ColumnInfo>(
             r#"
-            SELECT column_name, data_type, is_nullable, udt_name
+            SELECT 
+                column_name, 
+                data_type, 
+                is_nullable, 
+                udt_name,
+                pg_catalog.col_description(format('%I.%I', table_schema, table_name)::regclass::oid, ordinal_position) as comment
             FROM information_schema.columns 
             WHERE table_name = $1 AND table_schema = 'public'
             ORDER BY ordinal_position
